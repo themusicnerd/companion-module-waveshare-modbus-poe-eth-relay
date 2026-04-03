@@ -2,7 +2,7 @@
 
 Bitfocus Companion module for the Waveshare Modbus POE ETH Relay.
 
-This module provides direct Modbus TCP control of the 8-channel Waveshare relay, including live state polling for reliable feedbacks and variables.
+This module provides direct Modbus TCP control of the Waveshare relay range, including live state polling for reliable feedbacks and variables.
 
 ## Features
 
@@ -10,6 +10,7 @@ This module provides direct Modbus TCP control of the 8-channel Waveshare relay,
 - All-relays `on`, `off`, and `toggle` actions
 - Timed pulse action for momentary relay triggers
 - Live relay-state polling over Modbus TCP
+- Configurable relay-count support for both 8-channel and 30-channel models
 - Boolean feedbacks for connection status and relay on/off state
 - Variables for individual relay states, bitmap, relay count, last poll, and last error
 - Ready-to-use presets for relay toggles, all on, all off, and manual poll
@@ -22,7 +23,7 @@ Default device settings:
 
 - Modbus TCP port: `502`
 - Modbus unit id: `1`
-- Relay count: `8`
+- Relay count: `8` or `30`
 
 ## Development
 

@@ -1,12 +1,12 @@
 import { combineRgb, type CompanionFeedbackDefinitions } from '@companion-module/base'
 import type { ModuleInstance } from './main.js'
 
-const relayChoices = Array.from({ length: 8 }, (_, index) => ({
-	id: index + 1,
-	label: `Relay ${index + 1}`,
-}))
-
 export function UpdateFeedbacks(self: ModuleInstance): void {
+	const relayChoices = Array.from({ length: self.getRelayCount() }, (_, index) => ({
+		id: index + 1,
+		label: `Relay ${index + 1}`,
+	}))
+
 	const feedbacks: CompanionFeedbackDefinitions = {
 		connected: {
 			name: 'Connected to relay',

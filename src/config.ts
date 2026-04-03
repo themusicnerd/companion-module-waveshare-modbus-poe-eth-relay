@@ -4,6 +4,7 @@ export interface ModuleConfig {
 	host: string
 	port: number
 	unitId: number
+	relayCount: number
 	pollInterval: number
 	connectTimeout: number
 	defaultPulseMs: number
@@ -36,6 +37,17 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			min: 1,
 			max: 247,
 			default: 1,
+		},
+		{
+			type: 'dropdown',
+			id: 'relayCount',
+			label: 'Relay count',
+			width: 4,
+			default: 8,
+			choices: [
+				{ id: 8, label: '8 relays' },
+				{ id: 30, label: '30 relays' },
+			],
 		},
 		{
 			type: 'number',

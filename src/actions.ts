@@ -1,11 +1,6 @@
 import type { CompanionActionDefinitions } from '@companion-module/base'
 import type { ModuleInstance, RelayAction } from './main.js'
 
-const relayChoices = Array.from({ length: 8 }, (_, index) => ({
-	id: index + 1,
-	label: `Relay ${index + 1}`,
-}))
-
 const actionChoices = [
 	{ id: 'on', label: 'On' },
 	{ id: 'off', label: 'Off' },
@@ -13,6 +8,11 @@ const actionChoices = [
 ] as const
 
 export function UpdateActions(self: ModuleInstance): void {
+	const relayChoices = Array.from({ length: self.getRelayCount() }, (_, index) => ({
+		id: index + 1,
+		label: `Relay ${index + 1}`,
+	}))
+
 	const actions: CompanionActionDefinitions = {
 		set_relay: {
 			name: 'Set relay state',

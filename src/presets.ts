@@ -4,7 +4,7 @@ import type { ModuleInstance } from './main.js'
 export function UpdatePresets(self: ModuleInstance): void {
 	const presets: CompanionPresetDefinitions = {}
 
-	for (let channel = 1; channel <= 8; channel++) {
+	for (let channel = 1; channel <= self.getRelayCount(); channel++) {
 		presets[`relay_toggle_${channel}`] = {
 			type: 'button',
 			category: 'Relays',

@@ -1,12 +1,13 @@
 ## Waveshare Modbus POE ETH Relay
 
-This module controls the 8-channel Waveshare Modbus POE ETH Relay over Modbus TCP.
+This module controls the Waveshare Modbus POE ETH Relay over Modbus TCP.
 
 ### Configuration
 
 - Set the relay IP or hostname.
 - Leave the TCP port at `502` unless you changed it on the device.
 - Leave the Modbus unit id at `1` unless the relay was readdressed.
+- Select the correct relay count for your hardware.
 - Polling drives Companion feedbacks and variables, so shorter poll intervals give faster feedback updates.
 - The default pulse length is used by pulse actions unless you override the duration in the action itself.
 
@@ -32,7 +33,7 @@ These feedbacks are backed by live Modbus polling rather than only local button 
 - `$(instance:relays_on_count)`
 - `$(instance:last_error)`
 - `$(instance:last_poll)`
-- `$(instance:relay_1)` through `$(instance:relay_8)`
+- `$(instance:relay_1)` through `$(instance:relay_N)` for the configured relay count
 
 ### Protocol notes
 
@@ -43,4 +44,5 @@ These feedbacks are backed by live Modbus polling rather than only local button 
 ### Notes
 
 - This module was built and tested against the Waveshare Modbus POE ETH Relay with real hardware.
+- The module supports both the 8-channel and 30-channel variants when they follow the same Modbus TCP coil layout.
 - If feedbacks are slower than you want, reduce the poll interval. If you want less network traffic, increase it.

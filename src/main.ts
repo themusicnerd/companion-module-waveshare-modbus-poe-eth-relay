@@ -7,13 +7,11 @@ import { UpdateActions } from './actions.js'
 import { UpdateFeedbacks } from './feedbacks.js'
 import { UpdatePresets } from './presets.js'
 
-const RELAY_COUNT = 8
-
 export type RelayAction = 'on' | 'off' | 'toggle'
 
 export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	config!: ModuleConfig
-	relayStates = Array<boolean>(RELAY_COUNT).fill(false)
+	relayStates: boolean[] = []
 	isConnected = false
 	lastError = 'Not connected'
 	lastPollAt = 'Never'
@@ -28,6 +26,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	async init(config: ModuleConfig): Promise<void> {
 		this.config = config
+		this.resetRelayStateCache()
 
 		this.updateActions()
 		this.updateFeedbacks()
@@ -44,6 +43,11 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
 		this.config = config
+		this.resetRelayStateCache()
+		this.updateActions()
+		this.updateFeedbacks()
+		this.updatePresets()
+		this.updateVariableDefinitions()
 		this.updateVariables()
 		await this.restartPolling()
 	}
@@ -70,6 +74,11 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	getRelayState(channel: number): boolean {
 		return this.relayStates[channel - 1] ?? false
+	}
+
+	getRelayCount(): number {
+		const count = Number(this.config.relayCount) || 8
+		return Math.max(1, Math.min(30, count))
 	}
 
 	async executeRelayAction(channel: number, action: RelayAction): Promise<void> {
@@ -123,7 +132,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 		this.pollInFlight = true
 
 		try {
-			const relays = await this.readCoils(0, RELAY_COUNT)
+			const relays = await this.readCoils(0, this.getRelayCount())
 			this.relayStates = relays
 			this.isConnected = true
 			this.lastError = ''
@@ -155,11 +164,15 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 			last_poll: this.lastPollAt,
 		}
 
-		for (let i = 0; i < RELAY_COUNT; i++) {
+		for (let i = 0; i < this.getRelayCount(); i++) {
 			values[`relay_${i + 1}`] = this.relayStates[i] ? 'On' : 'Off'
 		}
 
 		this.setVariableValues(values)
+	}
+
+	private resetRelayStateCache(): void {
+		this.relayStates = Array<boolean>(this.getRelayCount()).fill(false)
 	}
 
 	private async readCoils(startAddress: number, quantity: number): Promise<boolean[]> {

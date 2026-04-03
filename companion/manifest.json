@@ -4,7 +4,7 @@
 	"name": "waveshare-modbus-poe-eth-relay",
 	"shortname": "waveshare-relay",
 	"description": "Controls and monitors the Waveshare Modbus POE ETH Relay over Modbus TCP",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"license": "MIT",
 	"repository": "git+https://github.com/themusicnerd/companion-module-waveshare-modbus-poe-eth-relay.git",
 	"bugs": "https://github.com/themusicnerd/companion-module-waveshare-modbus-poe-eth-relay/issues",
