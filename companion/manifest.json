@@ -1,0 +1,27 @@
+{
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
+	"id": "waveshare-modbus-poe-eth-relay",
+	"name": "waveshare-modbus-poe-eth-relay",
+	"shortname": "waveshare-relay",
+	"description": "Controls and monitors the Waveshare Modbus POE ETH Relay over Modbus TCP",
+	"version": "0.1.0",
+	"license": "MIT",
+	"repository": "git+https://github.com/bitfocus/companion-module-waveshare-modbus-poe-eth-relay.git",
+	"bugs": "https://github.com/bitfocus/companion-module-requests/issues/1584",
+	"maintainers": [
+		{
+			"name": "OpenAI Codex",
+			"email": "codex@example.invalid"
+		}
+	],
+	"runtime": {
+		"type": "node22",
+		"api": "nodejs-ipc",
+		"apiVersion": "0.0.0",
+		"entrypoint": "../dist/main.js"
+	},
+	"legacyIds": [],
+	"manufacturer": "Waveshare",
+	"products": ["Modbus POE ETH Relay"],
+	"keywords": ["modbus", "relay", "poe", "waveshare", "tcp"]
+}

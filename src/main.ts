@@ -1,0 +1,302 @@
+import { InstanceBase, runEntrypoint, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
+import net from 'node:net'
+import { GetConfigFields, type ModuleConfig } from './config.js'
+import { UpdateVariableDefinitions } from './variables.js'
+import { UpgradeScripts } from './upgrades.js'
+import { UpdateActions } from './actions.js'
+import { UpdateFeedbacks } from './feedbacks.js'
+import { UpdatePresets } from './presets.js'
+
+const RELAY_COUNT = 8
+
+export type RelayAction = 'on' | 'off' | 'toggle'
+
+export class ModuleInstance extends InstanceBase<ModuleConfig> {
+	config!: ModuleConfig
+	relayStates = Array<boolean>(RELAY_COUNT).fill(false)
+	isConnected = false
+	lastError = 'Not connected'
+	lastPollAt = 'Never'
+
+	private pollTimer: NodeJS.Timeout | undefined
+	private pollInFlight = false
+	private transactionId = 0
+
+	constructor(internal: unknown) {
+		super(internal)
+	}
+
+	async init(config: ModuleConfig): Promise<void> {
+		this.config = config
+
+		this.updateActions()
+		this.updateFeedbacks()
+		this.updatePresets()
+		this.updateVariableDefinitions()
+		this.updateVariables()
+
+		await this.restartPolling()
+	}
+
+	async destroy(): Promise<void> {
+		this.stopPolling()
+	}
+
+	async configUpdated(config: ModuleConfig): Promise<void> {
+		this.config = config
+		this.updateVariables()
+		await this.restartPolling()
+	}
+
+	getConfigFields(): SomeCompanionConfigField[] {
+		return GetConfigFields()
+	}
+
+	updateActions(): void {
+		UpdateActions(this)
+	}
+
+	updateFeedbacks(): void {
+		UpdateFeedbacks(this)
+	}
+
+	updatePresets(): void {
+		UpdatePresets(this)
+	}
+
+	updateVariableDefinitions(): void {
+		UpdateVariableDefinitions(this)
+	}
+
+	getRelayState(channel: number): boolean {
+		return this.relayStates[channel - 1] ?? false
+	}
+
+	async executeRelayAction(channel: number, action: RelayAction): Promise<void> {
+		await this.writeSingleCoil(channel - 1, action)
+		await this.refreshRelayStates(`relay ${channel} ${action}`)
+	}
+
+	async executeAllRelaysAction(action: RelayAction): Promise<void> {
+		await this.writeSingleCoil(0x00ff, action)
+		await this.refreshRelayStates(`all relays ${action}`)
+	}
+
+	async pulseRelay(channel: number, durationMs: number): Promise<void> {
+		await this.executeRelayAction(channel, 'on')
+		await new Promise((resolve) => setTimeout(resolve, durationMs))
+		await this.executeRelayAction(channel, 'off')
+	}
+
+	async forcePoll(): Promise<void> {
+		await this.refreshRelayStates('manual poll')
+	}
+
+	private async restartPolling(): Promise<void> {
+		this.stopPolling()
+
+		if (!this.config.host) {
+			this.isConnected = false
+			this.lastError = 'Host is not configured'
+			this.updateStatus(InstanceStatus.BadConfig, this.lastError)
+			this.updateVariables()
+			this.checkFeedbacks('connected', 'relay_state')
+			return
+		}
+
+		await this.refreshRelayStates('startup')
+
+		this.pollTimer = setInterval(() => {
+			void this.refreshRelayStates('poll')
+		}, this.config.pollInterval)
+	}
+
+	private stopPolling(): void {
+		if (this.pollTimer) {
+			clearInterval(this.pollTimer)
+			this.pollTimer = undefined
+		}
+	}
+
+	private async refreshRelayStates(reason: string): Promise<void> {
+		if (this.pollInFlight) return
+		this.pollInFlight = true
+
+		try {
+			const relays = await this.readCoils(0, RELAY_COUNT)
+			this.relayStates = relays
+			this.isConnected = true
+			this.lastError = ''
+			this.lastPollAt = new Date().toISOString()
+			this.updateStatus(InstanceStatus.Ok)
+			this.updateVariables()
+			this.checkFeedbacks('connected', 'relay_state')
+			this.log('debug', `State refresh successful (${reason})`)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			this.isConnected = false
+			this.lastError = message
+			this.updateStatus(InstanceStatus.ConnectionFailure, message)
+			this.updateVariables()
+			this.checkFeedbacks('connected', 'relay_state')
+			this.log('warn', `State refresh failed (${reason}): ${message}`)
+		} finally {
+			this.pollInFlight = false
+		}
+	}
+
+	private updateVariables(): void {
+		const values: Record<string, string> = {
+			connected: this.isConnected ? 'true' : 'false',
+			connection_status: this.isConnected ? 'Connected' : 'Disconnected',
+			relay_bitmap: this.relayStates.map((state) => (state ? '1' : '0')).join(''),
+			relays_on_count: String(this.relayStates.filter(Boolean).length),
+			last_error: this.lastError || 'None',
+			last_poll: this.lastPollAt,
+		}
+
+		for (let i = 0; i < RELAY_COUNT; i++) {
+			values[`relay_${i + 1}`] = this.relayStates[i] ? 'On' : 'Off'
+		}
+
+		this.setVariableValues(values)
+	}
+
+	private async readCoils(startAddress: number, quantity: number): Promise<boolean[]> {
+		const payload = Buffer.alloc(4)
+		payload.writeUInt16BE(startAddress, 0)
+		payload.writeUInt16BE(quantity, 2)
+
+		const responsePdu = await this.sendRequest(0x01, payload)
+		const byteCount = responsePdu.readUInt8(1)
+		const states: boolean[] = []
+
+		for (let index = 0; index < quantity; index++) {
+			const byteIndex = Math.floor(index / 8)
+			if (byteIndex >= byteCount) break
+			const mask = 1 << (index % 8)
+			states.push((responsePdu[2 + byteIndex] & mask) !== 0)
+		}
+
+		while (states.length < quantity) {
+			states.push(false)
+		}
+
+		return states
+	}
+
+	private async writeSingleCoil(address: number, action: RelayAction): Promise<void> {
+		const payload = Buffer.alloc(4)
+		payload.writeUInt16BE(address, 0)
+		payload.writeUInt16BE(this.coilValueForAction(action), 2)
+		await this.sendRequest(0x05, payload)
+	}
+
+	private coilValueForAction(action: RelayAction): number {
+		switch (action) {
+			case 'on':
+				return 0xff00
+			case 'off':
+				return 0x0000
+			case 'toggle':
+				return 0x5500
+		}
+	}
+
+	private async sendRequest(functionCode: number, payload: Buffer): Promise<Buffer> {
+		const transactionId = this.nextTransactionId()
+		const pdu = Buffer.concat([Buffer.from([functionCode]), payload])
+		const mbap = Buffer.alloc(7)
+
+		mbap.writeUInt16BE(transactionId, 0)
+		mbap.writeUInt16BE(0, 2)
+		mbap.writeUInt16BE(pdu.length + 1, 4)
+		mbap.writeUInt8(this.config.unitId, 6)
+
+		const response = await this.exchange(Buffer.concat([mbap, pdu]), transactionId)
+		if (response.length < 8) {
+			throw new Error('Short Modbus TCP response')
+		}
+
+		const responseFunction = response.readUInt8(7)
+		if (responseFunction === (functionCode | 0x80)) {
+			throw new Error(`Device returned Modbus exception 0x${response.readUInt8(8).toString(16).padStart(2, '0')}`)
+		}
+		if (responseFunction !== functionCode) {
+			throw new Error(`Unexpected Modbus function 0x${responseFunction.toString(16).padStart(2, '0')}`)
+		}
+
+		return response.subarray(7)
+	}
+
+	private async exchange(frame: Buffer, expectedTransactionId: number): Promise<Buffer> {
+		return await new Promise<Buffer>((resolve, reject) => {
+			const socket = new net.Socket()
+			const chunks: Buffer[] = []
+			let finished = false
+
+			const finish = (callback: () => void): void => {
+				if (finished) return
+				finished = true
+				socket.removeAllListeners()
+				socket.destroy()
+				callback()
+			}
+
+			socket.setTimeout(this.config.connectTimeout)
+
+			socket.on('data', (chunk) => {
+				chunks.push(chunk)
+				const response = Buffer.concat(chunks)
+
+				if (response.length >= 6) {
+					const expectedLength = 6 + response.readUInt16BE(4)
+					if (response.length >= expectedLength) {
+						try {
+							this.validateResponse(response, expectedTransactionId)
+							finish(() => resolve(response.subarray(0, expectedLength)))
+						} catch (error) {
+							finish(() => reject(error))
+						}
+					}
+				}
+			})
+
+			socket.on('error', (error) => {
+				finish(() => reject(error))
+			})
+
+			socket.on('timeout', () => {
+				finish(() => reject(new Error('Connection timed out')))
+			})
+
+			socket.connect(this.config.port, this.config.host, () => {
+				socket.write(frame)
+			})
+		})
+	}
+
+	private validateResponse(response: Buffer, expectedTransactionId: number): void {
+		const transactionId = response.readUInt16BE(0)
+		const protocolId = response.readUInt16BE(2)
+		const unitId = response.readUInt8(6)
+
+		if (transactionId !== expectedTransactionId) {
+			throw new Error('Mismatched Modbus transaction id')
+		}
+		if (protocolId !== 0) {
+			throw new Error(`Unexpected Modbus protocol id ${protocolId}`)
+		}
+		if (unitId !== this.config.unitId) {
+			throw new Error(`Unexpected Modbus unit id ${unitId}`)
+		}
+	}
+
+	private nextTransactionId(): number {
+		this.transactionId = (this.transactionId + 1) & 0xffff
+		if (this.transactionId === 0) this.transactionId = 1
+		return this.transactionId
+	}
+}
+
+runEntrypoint(ModuleInstance, UpgradeScripts)
