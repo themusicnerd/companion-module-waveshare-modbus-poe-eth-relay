@@ -6,6 +6,10 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 		id: index + 1,
 		label: `Relay ${index + 1}`,
 	}))
+	const inputChoices = Array.from({ length: self.getInputCount() }, (_, index) => ({
+		id: index + 1,
+		label: `Input ${index + 1}`,
+	}))
 
 	const feedbacks: CompanionFeedbackDefinitions = {
 		connected: {
@@ -35,6 +39,24 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				},
 			],
 			callback: (feedback) => self.getRelayState(Number(feedback.options.channel)),
+		},
+		input_state: {
+			name: 'Digital input is active',
+			type: 'boolean',
+			defaultStyle: {
+				bgcolor: combineRgb(180, 90, 0),
+				color: combineRgb(255, 255, 255),
+			},
+			options: [
+				{
+					id: 'channel',
+					type: 'dropdown',
+					label: 'Input',
+					default: 1,
+					choices: inputChoices,
+				},
+			],
+			callback: (feedback) => self.getInputState(Number(feedback.options.channel)),
 		},
 	}
 

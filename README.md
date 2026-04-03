@@ -11,8 +11,10 @@ This module provides direct Modbus TCP control of the Waveshare relay range, inc
 - Timed pulse action for momentary relay triggers
 - Live relay-state polling over Modbus TCP
 - Configurable relay-count support for both 8-channel and 30-channel models
+- Optional digital-input polling support for the `(C)` variant
 - Boolean feedbacks for connection status and relay on/off state
-- Variables for individual relay states, bitmap, relay count, last poll, and last error
+- Boolean feedbacks for digital input state
+- Variables for relay state, digital input state, bitmaps, counts, last poll, and last error
 - Ready-to-use presets for relay toggles, all on, all off, and manual poll
 
 ## Module Usage
@@ -24,6 +26,7 @@ Default device settings:
 - Modbus TCP port: `502`
 - Modbus unit id: `1`
 - Relay count: `8` or `30`
+- Digital inputs: supported on the `(C)` model
 
 ## Development
 

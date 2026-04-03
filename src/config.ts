@@ -5,6 +5,9 @@ export interface ModuleConfig {
 	port: number
 	unitId: number
 	relayCount: number
+	hasDigitalInputs: boolean
+	inputCount: number
+	inputPollInterval: number
 	pollInterval: number
 	connectTimeout: number
 	defaultPulseMs: number
@@ -48,6 +51,32 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 				{ id: 8, label: '8 relays' },
 				{ id: 30, label: '30 relays' },
 			],
+		},
+		{
+			type: 'checkbox',
+			id: 'hasDigitalInputs',
+			label: 'Enable digital input polling',
+			width: 4,
+			default: false,
+		},
+		{
+			type: 'dropdown',
+			id: 'inputCount',
+			label: 'Digital input count',
+			width: 4,
+			default: 8,
+			choices: [{ id: 8, label: '8 inputs' }],
+			isVisible: (options) => Boolean(options.hasDigitalInputs),
+		},
+		{
+			type: 'number',
+			id: 'inputPollInterval',
+			label: 'Input poll interval (ms)',
+			width: 4,
+			min: 100,
+			max: 10000,
+			default: 250,
+			isVisible: (options) => Boolean(options.hasDigitalInputs),
 		},
 		{
 			type: 'number',

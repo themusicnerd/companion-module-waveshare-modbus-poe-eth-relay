@@ -8,6 +8,7 @@ This module controls the Waveshare Modbus POE ETH Relay over Modbus TCP.
 - Leave the TCP port at `502` unless you changed it on the device.
 - Leave the Modbus unit id at `1` unless the relay was readdressed.
 - Select the correct relay count for your hardware.
+- Enable digital input polling for the `(C)` variant and leave the input count at `8`.
 - Polling drives Companion feedbacks and variables, so shorter poll intervals give faster feedback updates.
 - The default pulse length is used by pulse actions unless you override the duration in the action itself.
 
@@ -22,6 +23,7 @@ This module controls the Waveshare Modbus POE ETH Relay over Modbus TCP.
 
 - Connected to relay
 - Relay is on
+- Digital input is active
 
 These feedbacks are backed by live Modbus polling rather than only local button state, so button colours follow the real relay outputs.
 
@@ -34,6 +36,10 @@ These feedbacks are backed by live Modbus polling rather than only local button 
 - `$(instance:last_error)`
 - `$(instance:last_poll)`
 - `$(instance:relay_1)` through `$(instance:relay_N)` for the configured relay count
+- `$(instance:input_1)` through `$(instance:input_8)` when digital input polling is enabled
+- `$(instance:input_bitmap)`
+- `$(instance:inputs_active_count)`
+- `$(instance:last_input_poll)`
 
 ### Protocol notes
 
@@ -45,4 +51,5 @@ These feedbacks are backed by live Modbus polling rather than only local button 
 
 - This module was built and tested against the Waveshare Modbus POE ETH Relay with real hardware.
 - The module supports both the 8-channel and 30-channel variants when they follow the same Modbus TCP coil layout.
+- The `(C)` variant exposes digital inputs over Modbus, so those inputs can be used in Companion Triggers via `On variable change`.
 - If feedbacks are slower than you want, reduce the poll interval. If you want less network traffic, increase it.

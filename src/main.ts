@@ -12,12 +12,16 @@ export type RelayAction = 'on' | 'off' | 'toggle'
 export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	config!: ModuleConfig
 	relayStates: boolean[] = []
+	inputStates: boolean[] = []
 	isConnected = false
 	lastError = 'Not connected'
 	lastPollAt = 'Never'
+	lastInputPollAt = 'Never'
 
 	private pollTimer: NodeJS.Timeout | undefined
+	private inputPollTimer: NodeJS.Timeout | undefined
 	private pollInFlight = false
+	private inputPollInFlight = false
 	private transactionId = 0
 
 	constructor(internal: unknown) {
@@ -81,6 +85,19 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 		return Math.max(1, Math.min(30, count))
 	}
 
+	getInputState(channel: number): boolean {
+		return this.inputStates[channel - 1] ?? false
+	}
+
+	hasInputSupport(): boolean {
+		return Boolean(this.config.hasDigitalInputs)
+	}
+
+	getInputCount(): number {
+		const count = Number(this.config.inputCount) || 8
+		return this.hasInputSupport() ? Math.max(1, Math.min(8, count)) : 0
+	}
+
 	async executeRelayAction(channel: number, action: RelayAction): Promise<void> {
 		await this.writeSingleCoil(channel - 1, action)
 		await this.refreshRelayStates(`relay ${channel} ${action}`)
@@ -99,6 +116,9 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	async forcePoll(): Promise<void> {
 		await this.refreshRelayStates('manual poll')
+		if (this.hasInputSupport()) {
+			await this.refreshInputStates('manual poll')
+		}
 	}
 
 	private async restartPolling(): Promise<void> {
@@ -114,16 +134,28 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 		}
 
 		await this.refreshRelayStates('startup')
+		if (this.hasInputSupport()) {
+			await this.refreshInputStates('startup')
+		}
 
 		this.pollTimer = setInterval(() => {
 			void this.refreshRelayStates('poll')
 		}, this.config.pollInterval)
+		if (this.hasInputSupport()) {
+			this.inputPollTimer = setInterval(() => {
+				void this.refreshInputStates('poll')
+			}, this.config.inputPollInterval)
+		}
 	}
 
 	private stopPolling(): void {
 		if (this.pollTimer) {
 			clearInterval(this.pollTimer)
 			this.pollTimer = undefined
+		}
+		if (this.inputPollTimer) {
+			clearInterval(this.inputPollTimer)
+			this.inputPollTimer = undefined
 		}
 	}
 
@@ -154,18 +186,51 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 		}
 	}
 
+	private async refreshInputStates(reason: string): Promise<void> {
+		if (!this.hasInputSupport() || this.inputPollInFlight) return
+		this.inputPollInFlight = true
+
+		try {
+			const inputs = await this.readDiscreteInputs(0, this.getInputCount())
+			const previousStates = [...this.inputStates]
+			this.inputStates = inputs
+			this.lastInputPollAt = new Date().toISOString()
+			this.updateVariables()
+			this.checkFeedbacks('input_state')
+
+			for (let i = 0; i < inputs.length; i++) {
+				if (inputs[i] !== previousStates[i]) {
+					this.log('info', `Input ${i + 1} changed to ${inputs[i] ? 'active' : 'inactive'}`)
+				}
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			this.lastError = message
+			this.updateVariables()
+			this.log('warn', `Input refresh failed (${reason}): ${message}`)
+		} finally {
+			this.inputPollInFlight = false
+		}
+	}
+
 	private updateVariables(): void {
 		const values: Record<string, string> = {
 			connected: this.isConnected ? 'true' : 'false',
 			connection_status: this.isConnected ? 'Connected' : 'Disconnected',
 			relay_bitmap: this.relayStates.map((state) => (state ? '1' : '0')).join(''),
 			relays_on_count: String(this.relayStates.filter(Boolean).length),
+			input_bitmap: this.inputStates.map((state) => (state ? '1' : '0')).join(''),
+			inputs_active_count: String(this.inputStates.filter(Boolean).length),
 			last_error: this.lastError || 'None',
 			last_poll: this.lastPollAt,
+			last_input_poll: this.lastInputPollAt,
 		}
 
 		for (let i = 0; i < this.getRelayCount(); i++) {
 			values[`relay_${i + 1}`] = this.relayStates[i] ? 'On' : 'Off'
+		}
+		for (let i = 0; i < this.getInputCount(); i++) {
+			values[`input_${i + 1}`] = this.inputStates[i] ? 'Active' : 'Inactive'
 		}
 
 		this.setVariableValues(values)
@@ -173,6 +238,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	private resetRelayStateCache(): void {
 		this.relayStates = Array<boolean>(this.getRelayCount()).fill(false)
+		this.inputStates = Array<boolean>(this.getInputCount()).fill(false)
 	}
 
 	private async readCoils(startAddress: number, quantity: number): Promise<boolean[]> {
@@ -203,6 +269,29 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 		payload.writeUInt16BE(address, 0)
 		payload.writeUInt16BE(this.coilValueForAction(action), 2)
 		await this.sendRequest(0x05, payload)
+	}
+
+	private async readDiscreteInputs(startAddress: number, quantity: number): Promise<boolean[]> {
+		const payload = Buffer.alloc(4)
+		payload.writeUInt16BE(startAddress, 0)
+		payload.writeUInt16BE(quantity, 2)
+
+		const responsePdu = await this.sendRequest(0x02, payload)
+		const byteCount = responsePdu.readUInt8(1)
+		const states: boolean[] = []
+
+		for (let index = 0; index < quantity; index++) {
+			const byteIndex = Math.floor(index / 8)
+			if (byteIndex >= byteCount) break
+			const mask = 1 << (index % 8)
+			states.push((responsePdu[2 + byteIndex] & mask) !== 0)
+		}
+
+		while (states.length < quantity) {
+			states.push(false)
+		}
+
+		return states
 	}
 
 	private coilValueForAction(action: RelayAction): number {
