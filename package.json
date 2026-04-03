@@ -1,6 +1,6 @@
 {
 	"name": "waveshare-modbus-poe-eth-relay",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"main": "dist/main.js",
 	"type": "module",
 	"scripts": {
@@ -16,7 +16,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/bitfocus/companion-module-waveshare-modbus-poe-eth-relay.git"
+			"url": "git+https://github.com/themusicnerd/companion-module-waveshare-modbus-poe-eth-relay.git"
 	},
 	"engines": {
 		"node": "^22.20",

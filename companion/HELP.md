@@ -8,6 +8,7 @@ This module controls the 8-channel Waveshare Modbus POE ETH Relay over Modbus TC
 - Leave the TCP port at `502` unless you changed it on the device.
 - Leave the Modbus unit id at `1` unless the relay was readdressed.
 - Polling drives Companion feedbacks and variables, so shorter poll intervals give faster feedback updates.
+- The default pulse length is used by pulse actions unless you override the duration in the action itself.
 
 ### Actions
 
@@ -21,7 +22,7 @@ This module controls the 8-channel Waveshare Modbus POE ETH Relay over Modbus TC
 - Connected to relay
 - Relay is on
 
-These feedbacks are backed by live Modbus polling rather than only local button state.
+These feedbacks are backed by live Modbus polling rather than only local button state, so button colours follow the real relay outputs.
 
 ### Variables
 
@@ -38,3 +39,8 @@ These feedbacks are backed by live Modbus polling rather than only local button 
 - Relay state polling uses Modbus function `0x01` to read the coil states.
 - Relay writes use function `0x05`.
 - Toggle writes use Waveshare's documented `0x5500` value.
+
+### Notes
+
+- This module was built and tested against the Waveshare Modbus POE ETH Relay with real hardware.
+- If feedbacks are slower than you want, reduce the poll interval. If you want less network traffic, increase it.

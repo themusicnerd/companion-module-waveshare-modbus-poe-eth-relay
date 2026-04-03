@@ -4,20 +4,20 @@
 	"name": "waveshare-modbus-poe-eth-relay",
 	"shortname": "waveshare-relay",
 	"description": "Controls and monitors the Waveshare Modbus POE ETH Relay over Modbus TCP",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/bitfocus/companion-module-waveshare-modbus-poe-eth-relay.git",
-	"bugs": "https://github.com/bitfocus/companion-module-requests/issues/1584",
+	"repository": "git+https://github.com/themusicnerd/companion-module-waveshare-modbus-poe-eth-relay.git",
+	"bugs": "https://github.com/themusicnerd/companion-module-waveshare-modbus-poe-eth-relay/issues",
 	"maintainers": [
 		{
-			"name": "OpenAI Codex",
-			"email": "codex@example.invalid"
+			"name": "Adrian Davis",
+			"email": "themusicnerd@gmail.com"
 		}
 	],
 	"runtime": {
 		"type": "node22",
 		"api": "nodejs-ipc",
-		"apiVersion": "0.0.0",
+		"apiVersion": "1.14.1",
 		"entrypoint": "../dist/main.js"
 	},
 	"legacyIds": [],
