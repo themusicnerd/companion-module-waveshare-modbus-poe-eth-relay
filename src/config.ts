@@ -66,7 +66,7 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			width: 4,
 			default: 8,
 			choices: [{ id: 8, label: '8 inputs' }],
-			isVisible: (options) => Boolean(options.hasDigitalInputs),
+			isVisible: (options) => !!options.hasDigitalInputs,
 		},
 		{
 			type: 'number',
@@ -76,7 +76,7 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			min: 100,
 			max: 10000,
 			default: 250,
-			isVisible: (options) => Boolean(options.hasDigitalInputs),
+			isVisible: (options) => !!options.hasDigitalInputs,
 		},
 		{
 			type: 'number',

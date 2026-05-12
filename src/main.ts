@@ -90,7 +90,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	}
 
 	hasInputSupport(): boolean {
-		return Boolean(this.config.hasDigitalInputs)
+		return !!this.config.hasDigitalInputs
 	}
 
 	getInputCount(): number {
@@ -218,9 +218,9 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 			connected: this.isConnected ? 'true' : 'false',
 			connection_status: this.isConnected ? 'Connected' : 'Disconnected',
 			relay_bitmap: this.relayStates.map((state) => (state ? '1' : '0')).join(''),
-			relays_on_count: String(this.relayStates.filter(Boolean).length),
+			relays_on_count: String(this.relayStates.filter((state) => state).length),
 			input_bitmap: this.inputStates.map((state) => (state ? '1' : '0')).join(''),
-			inputs_active_count: String(this.inputStates.filter(Boolean).length),
+			inputs_active_count: String(this.inputStates.filter((state) => state).length),
 			last_error: this.lastError || 'None',
 			last_poll: this.lastPollAt,
 			last_input_poll: this.lastInputPollAt,
@@ -358,7 +358,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 							this.validateResponse(response, expectedTransactionId)
 							finish(() => resolve(response.subarray(0, expectedLength)))
 						} catch (error) {
-							finish(() => reject(error))
+							finish(() => reject(error instanceof Error ? error : new Error(String(error))))
 						}
 					}
 				}
